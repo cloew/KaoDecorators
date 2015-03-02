@@ -49,6 +49,21 @@ class ValueProvider:
     def shouldProvide(self, argument, args, kwargs):
         """ Return if the Value Provider should be used """
         return (argument.isProvided(args, kwargs) and argument.getValue(args, kwargs) is None) or not argument.isProvided(args, kwargs)
+            
+class FieldProvider:
+    """ Returns a value from a field on the first argument (typically self) """
+    
+    def __init__(self, fieldName):
+        """ Initialize the Value Provider """
+        self.fieldName = fieldName
+        
+    def shouldProvide(self, argument, args, kwargs):
+        """ Return if the Value Provider should be used """
+        return (argument.isProvided(args, kwargs) and argument.getValue(args, kwargs) is None) or not argument.isProvided(args, kwargs)
+        
+    def getValue(self, obj, *args, **kwargs):
+        """ Return the value for this default """
+        return getattr(obj, self.fieldName)
         
 class DefaultProvider:
     """ Returns a value from the function defaults """
@@ -80,10 +95,11 @@ class PerCallProvider(DefaultProvider):
 class Default:
     """ Represents a default argument """
     
-    def __init__(self, argument, perCall=False, provider=None):
+    def __init__(self, argument, perCall=False, field=None, provider=None):
         """ Initialize the default """
         self.argName = argument
         self.perCall = perCall
+        self.field = field
         self.provider = provider
         
     def setMetadata(self, metadata):
@@ -93,6 +109,8 @@ class Default:
         
         if self.provider is not None:
             self.provider = ValueProvider(self.provider)
+        elif self.field is not None:
+            self.provider = FieldProvider(self.field)
         elif self.perCall:
             self.provider = PerCallProvider(self.argument, metadata)
         else:
