@@ -39,40 +39,72 @@ class SmartArg:
         else:
             kwargs[self.argName] = newValue
             
+class ValueProvider:
+    """ Returns a value from a method """
+    
+    def __init__(self, method):
+        """ Initialize the Value Provider """
+        self.getValue = method
+        
+    def shouldProvide(self, argument, args, kwargs):
+        """ Return if the Value Provider should be used """
+        return (argument.isProvided(args, kwargs) and argument.getValue(args, kwargs) is None) or not argument.isProvided(args, kwargs)
+        
+class DefaultProvider:
+    """ Returns a value from the function defaults """
+    
+    def __init__(self, argument, metadata):
+        """ Initialize the Value Provider """
+        self.argument = argument
+        self.metadata = metadata
+        
+    def shouldProvide(self, argument, args, kwargs):
+        """ Return if the Value Provider should be used """
+        return argument.isProvided(args, kwargs) and argument.getValue(args, kwargs) is None
+        
+    def getValue(self, *args, **kwargs):
+        """ Return the value for this default """
+        return self.metadata.defaults[self.argument.argName]
+        
+class PerCallProvider(DefaultProvider):
+    """ Returns a copy of the value from the function defaults """
+        
+    def shouldProvide(self, argument, args, kwargs):
+        """ Return if the Value Provider should be used """
+        return DefaultProvider.shouldProvide(self, argument, args, kwargs) or not argument.isProvided(args, kwargs)
+        
+    def getValue(self, *args, **kwargs):
+        """ Return the value for this default """
+        return copy.deepcopy(DefaultProvider.getValue(self, *args, **kwargs))
+            
 class Default:
     """ Represents a default argument """
     
-    def __init__(self, argument):
+    def __init__(self, argument, perCall=False, provider=None):
         """ Initialize the default """
         self.argName = argument
+        self.perCall = perCall
+        self.provider = provider
         
     def setMetadata(self, metadata):
         """ Set the default's metadata """
         self.argument = SmartArg(self.argName, metadata)
         self.metadata = metadata
         
+        if self.provider is not None:
+            self.provider = ValueProvider(self.provider)
+        elif self.perCall:
+            self.provider = PerCallProvider(self.argument, metadata)
+        else:
+            self.provider = DefaultProvider(self.argument, metadata)
+        
     def shouldUseDefault(self, args, kwargs):
         """ Return if the default value should be used """
-        return self.argument.isProvided(args, kwargs) and self.argument.getValue(args, kwargs) is None
+        return self.provider.shouldProvide(self.argument, args, kwargs)
         
     def setDefault(self, args, kwargs):
         """ Return get the default value for the argument """
-        self.argument.setValue(args, kwargs, self.getDefault())
-        
-    def getDefault(self):
-        """ Return get the default value for the argument """
-        return self.metadata.defaults[self.argument.argName]
-        
-class PerCallDefault(Default):
-    """ Represents a default that should be copied for each execution of the function """
-    
-    def shouldUseDefault(self, args, kwargs):
-        """ Return if the default value should be used """
-        return Default.shouldUseDefault(self, args, kwargs) or not self.argument.isProvided(args, kwargs)
-        
-    def getDefault(self):
-        """ Return get the default value for the argument """
-        return copy.deepcopy(Default.getDefault(self))
+        self.argument.setValue(args, kwargs, self.provider.getValue(*args, **kwargs))
 
 def smart_defaults(*args):
     """ Set the given arguments to be used as smart properties that 
