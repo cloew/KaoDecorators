@@ -102,19 +102,23 @@ class Default:
         self.field = field
         self.provider = provider
         
-    def setMetadata(self, metadata):
+class BoundDefault:
+    """ Represents a default argument bound to its function metadata """
+        
+    def __init__(self, defaultData, metadata):
         """ Set the default's metadata """
-        self.argument = SmartArg(self.argName, metadata)
+        self.argument = SmartArg(defaultData.argName, metadata)
         self.metadata = metadata
         
-        if self.provider is not None:
-            self.provider = ValueProvider(self.provider)
-        elif self.field is not None:
-            self.provider = FieldProvider(self.field)
-        elif self.perCall:
+        if defaultData.provider is not None:
+            self.provider = ValueProvider(defaultData.provider)
+        elif defaultData.field is not None:
+            self.provider = FieldProvider(defaultData.field)
+        elif defaultData.perCall:
             self.provider = PerCallProvider(self.argument, metadata)
         else:
             self.provider = DefaultProvider(self.argument, metadata)
+        print self.provider, self.provider.getValue
         
     def shouldUseDefault(self, args, kwargs):
         """ Return if the default value should be used """
@@ -129,11 +133,12 @@ def smart_defaults(*args):
         can be set to None and then set to the actual default value """
     defaults = [Default(arg) if type(arg) is str else arg for arg in args]
     def getFnDefaults(fn):
+        print fn.__name__
         metadata = FunctionMetadata(fn)
-        [default.setMetadata(metadata) for default in defaults]
+        boundDefaults = [BoundDefault(default, metadata) for default in defaults]
         def setKwargs(*args, **kwargs):
             args = list(args)
-            for default in defaults:
+            for default in boundDefaults:
                 if default.shouldUseDefault(args, kwargs):
                     default.setDefault(args, kwargs)
             return fn(*args, **kwargs)
