@@ -118,7 +118,6 @@ class BoundDefault:
             self.provider = PerCallProvider(self.argument, metadata)
         else:
             self.provider = DefaultProvider(self.argument, metadata)
-        print self.provider, self.provider.getValue
         
     def shouldUseDefault(self, args, kwargs):
         """ Return if the default value should be used """
@@ -133,7 +132,6 @@ def smart_defaults(*args):
         can be set to None and then set to the actual default value """
     defaults = [Default(arg) if type(arg) is str else arg for arg in args]
     def getFnDefaults(fn):
-        print fn.__name__
         metadata = FunctionMetadata(fn)
         boundDefaults = [BoundDefault(default, metadata) for default in defaults]
         def setKwargs(*args, **kwargs):
